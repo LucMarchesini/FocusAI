@@ -1,0 +1,6 @@
+opencv-python
+tensorflow
+pyqt6
+pyqtgraph
+numpy
+matplotlib
