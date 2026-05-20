@@ -1,7 +1,0 @@
-data/raw/
-data/processed/
-models/*.h5
-sessions/
-__pycache__/
-*.pyc
-.env
