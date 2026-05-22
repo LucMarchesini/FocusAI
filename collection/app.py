@@ -6,7 +6,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.utils.config import DATA_RAW_PATH
 
 app = Flask(__name__)
