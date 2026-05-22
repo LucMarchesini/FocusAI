@@ -247,7 +247,7 @@ def process_category(
             final = cropped if cropped is not None else image
         else:
             final = image
-            yaw, pitch, roll = 0.0, 0.0, 0.0
+            yaw, pitch, roll = None, None, None
             face_detected = False
             fallbacks += 1
             log_no_face(log_path, filename)
@@ -265,7 +265,10 @@ def process_category(
             "face_detected": face_detected,
         }])
 
-        print(f"[{i}/{total}] {category} — {filename} — yaw: {yaw}°, pitch: {pitch}°, roll: {roll}°")
+        if face_detected:
+            print(f"[{i}/{total}] {category} — {filename} — yaw: {yaw}°, pitch: {pitch}°, roll: {roll}°")
+        else:
+            print(f"[{i}/{total}] {category} — {filename} — sem face detectada")
 
     return {"total": total, "cropped": cropped_count, "fallbacks": fallbacks}
 
@@ -274,6 +277,9 @@ def main() -> None:
     """
     Full pipeline: download model, build detector, process both classes, print summary.
     """
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    import sys
+    sys.path.insert(0, str(PROJECT_ROOT))
     from src.utils.config import (
         MEDIAPIPE_MODEL_PATH,
         MEDIAPIPE_MODEL_URL,
@@ -282,8 +288,6 @@ def main() -> None:
         LANDMARK_CSV_PATH,
         NO_FACE_LOG_PATH,
     )
-
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
     download_model(PROJECT_ROOT / MEDIAPIPE_MODEL_PATH, MEDIAPIPE_MODEL_URL)
     detector = build_detector(PROJECT_ROOT / MEDIAPIPE_MODEL_PATH)
