@@ -96,4 +96,6 @@ Input: (224, 224, 1)
 
 ## What's Next
 
-- Integrate the saved model into a real-time inference pipeline (live webcam feed → prediction overlay).
+1. **Re-train on `data/cropped/`** — use the face-cropped images instead of raw frames to reduce background noise.
+2. **Fix class imbalance** — add `class_weight` to `model.fit()` (997 focused vs 1,339 distracted).
+3. **Real-time inference pipeline** — live webcam feed → prediction overlay.
