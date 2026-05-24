@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>FocusAI — Data Collection</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+      gap: 20px;
+    }
+
+    h1 { font-size: 1.4rem; letter-spacing: 0.05em; color: #fff; }
+
+    #camera-wrap {
+      position: relative;
+      width: 640px;
+      max-width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 3px solid #333;
+      transition: border-color 0.2s;
+    }
+    #camera-wrap.focused  { border-color: #22c55e; }
+    #camera-wrap.distracted { border-color: #ef4444; }
+
+    video, canvas {
+      display: block;
+      width: 100%;
+    }
+    video { transform: scaleX(-1); }
+    canvas { display: none; }
+
+    #mode-badge {
+      position: absolute;
+      top: 12px; left: 12px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      transition: color 0.2s;
+      color: #888;
+    }
+    #camera-wrap.focused  #mode-badge { color: #22c55e; }
+    #camera-wrap.distracted #mode-badge { color: #ef4444; }
+
+    #fps-badge {
+      position: absolute;
+      top: 12px; right: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      color: #aaa;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      cursor: pointer;
+      padding: 12px 28px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+
+    #btn-focused {
+      background: #14532d;
+      color: #86efac;
+      border-color: #166534;
+    }
+    #btn-focused:hover, #btn-focused.active {
+      background: #22c55e;
+      color: #fff;
+      border-color: #22c55e;
+    }
+
+    #btn-distracted {
+      background: #450a0a;
+      color: #fca5a5;
+      border-color: #7f1d1d;
+    }
+    #btn-distracted:hover, #btn-distracted.active {
+      background: #ef4444;
+      color: #fff;
+      border-color: #ef4444;
+    }
+
+    #btn-pause {
+      background: #1c1c1c;
+      color: #aaa;
+      border-color: #333;
+    }
+    #btn-pause:hover, #btn-pause.active {
+      background: #333;
+      color: #fff;
+      border-color: #555;
+    }
+
+    .counters {
+      display: flex;
+      gap: 32px;
+    }
+
+    .counter {
+      text-align: center;
+    }
+    .counter .value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .counter .label-text {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin-top: 4px;
+    }
+    #count-focused  { color: #22c55e; }
+    #count-distracted { color: #ef4444; }
+
+    #status {
+      font-size: 0.8rem;
+      color: #555;
+      min-height: 1.2em;
+    }
+
+    #error-msg {
+      color: #ef4444;
+      font-size: 0.9rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>FocusAI — Training Data Collection</h1>
+
+  <div id="camera-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <div id="mode-badge">PAUSED</div>
+    <div id="fps-badge">0 fps</div>
+  </div>
+
+  <p id="error-msg"></p>
+
+  <div class="controls">
+    <button id="btn-focused">Focused (1)</button>
+    <button id="btn-distracted">Not Focused (0)</button>
+    <button id="btn-pause" class="active">Pause</button>
+  </div>
+
+  <div class="counters">
+    <div class="counter">
+      <div class="value" id="count-focused">0</div>
+      <div class="label-text">FOCUSED</div>
+    </div>
+    <div class="counter">
+      <div class="value" id="count-distracted">0</div>
+      <div class="label-text">NOT FOCUSED</div>
+    </div>
+  </div>
+
+  <div id="status">Start the webcam and choose a label to begin recording.</div>
+
+<script>
+  const video    = document.getElementById('video');
+  const canvas   = document.getElementById('canvas');
+  const ctx      = canvas.getContext('2d');
+  const wrap     = document.getElementById('camera-wrap');
+  const badge    = document.getElementById('mode-badge');
+  const fpsBadge = document.getElementById('fps-badge');
+  const status   = document.getElementById('status');
+  const errMsg   = document.getElementById('error-msg');
+
+  const btnFocused    = document.getElementById('btn-focused');
+  const btnDistracted = document.getElementById('btn-distracted');
+  const btnPause      = document.getElementById('btn-pause');
+
+  const countFocused    = document.getElementById('count-focused');
+  const countDistracted = document.getElementById('count-distracted');
+
+  let mode = 'pause';   // 'focused' | 'distracted' | 'pause'
+  let intervalId = null;
+  let frameCount = 0;
+  let fpsTs = Date.now();
+  let saving = false;
+
+  // Start webcam
+  navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    .then(stream => {
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+      };
+    })
+    .catch(err => {
+      errMsg.style.display = 'block';
+      errMsg.textContent = `Webcam error: ${err.message}`;
+    });
+
+  // Load initial counts
+  fetch('/counts')
+    .then(r => r.json())
+    .then(updateCounters);
+
+  function updateCounters(counts) {
+    countFocused.textContent    = counts.focused;
+    countDistracted.textContent = counts.distracted;
+  }
+
+  function setMode(newMode) {
+    mode = newMode;
+    [btnFocused, btnDistracted, btnPause].forEach(b => b.classList.remove('active'));
+    wrap.classList.remove('focused', 'distracted');
+
+    if (mode === 'focused') {
+      btnFocused.classList.add('active');
+      wrap.classList.add('focused');
+      badge.textContent = 'FOCUSED';
+    } else if (mode === 'distracted') {
+      btnDistracted.classList.add('active');
+      wrap.classList.add('distracted');
+      badge.textContent = 'NOT FOCUSED';
+    } else {
+      btnPause.classList.add('active');
+      badge.textContent = 'PAUSED';
+    }
+  }
+
+  btnFocused.addEventListener('click',    () => setMode('focused'));
+  btnDistracted.addEventListener('click', () => setMode('distracted'));
+  btnPause.addEventListener('click',      () => setMode('pause'));
+
+  // Keyboard shortcuts: F = focused, D = distracted, Space = pause
+  document.addEventListener('keydown', e => {
+    if (e.key === 'f' || e.key === 'F') setMode('focused');
+    if (e.key === 'd' || e.key === 'D') setMode('distracted');
+    if (e.key === ' ') { e.preventDefault(); setMode('pause'); }
+  });
+
+  // 10 FPS capture loop
+  async function captureFrame() {
+    if (mode === 'pause' || saving) return;
+    if (video.readyState < 2) return;
+
+    saving = true;
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
+    const imageData = canvas.toDataURL('image/jpeg', 0.85);
+
+    try {
+      const res = await fetch('/save_frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: mode, image: imageData }),
+      });
+      const json = await res.json();
+      if (json.status === 'ok') updateCounters(json.counts);
+    } catch (err) {
+      status.textContent = `Save error: ${err.message}`;
+    } finally {
+      saving = false;
+    }
+
+    // FPS display
+    frameCount++;
+    const now = Date.now();
+    if (now - fpsTs >= 1000) {
+      fpsBadge.textContent = `${frameCount} fps`;
+      frameCount = 0;
+      fpsTs = now;
+    }
+  }
+
+  setInterval(captureFrame, 100); // 10 fps
+</script>
+</body>
+</html>

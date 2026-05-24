@@ -1,0 +1,11 @@
+[project]
+name = "focusai"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "matplot>=0.1.9",
+    "mediapipe>=0.10.35",
+    "opencv-python>=4.13.0.92",
+    "scikit-learn>=1.8.0",
+    "tensorflow>=2.21.0",
+]
