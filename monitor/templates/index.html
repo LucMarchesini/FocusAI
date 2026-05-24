@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>FocusAI Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ──────────────────────────────────────────── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      border-bottom: 1px solid #1f1f1f;
+      background: #111;
+    }
+
+    #topbar h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #fff;
+    }
+
+    #model-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    #model-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #888;
+      transition: background 0.3s;
+    }
+    #model-dot.loaded   { background: #22c55e; }
+    #model-dot.unloaded { background: #ef4444; }
+
+    /* ── Main content ─────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      gap: 16px;
+      padding: 16px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Camera wrap ──────────────────────────────────────── */
+    #camera-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 3px solid #333;
+      transition: border-color 0.2s;
+    }
+    #camera-wrap.focused    { border-color: #22c55e; }
+    #camera-wrap.distracted { border-color: #ef4444; }
+    #camera-wrap.no_model   { border-color: #888; }
+
+    video, canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    video { transform: scaleX(-1); }
+    canvas { display: none; }
+
+    #label-badge {
+      position: absolute;
+      top: 12px; left: 12px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      color: #888;
+      transition: color 0.2s;
+    }
+    #camera-wrap.focused    #label-badge { color: #22c55e; }
+    #camera-wrap.distracted #label-badge { color: #ef4444; }
+
+    #fps-badge {
+      position: absolute;
+      top: 12px; right: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      color: #aaa;
+    }
+
+    /* ── Sidebar (cards + error) ──────────────────────────── */
+    #sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    /* ── Metric cards ─────────────────────────────────────── */
+    #metrics {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 18px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-title {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      color: #555;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .card-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1;
+      transition: color 0.2s;
+      color: #888;
+    }
+
+    .card-value.green { color: #22c55e; }
+    .card-value.red   { color: #ef4444; }
+    .card-value.gray  { color: #888; }
+
+    .card-subtitle {
+      font-size: 0.72rem;
+      color: #555;
+    }
+
+    #error-msg {
+      color: #ef4444;
+      font-size: 0.85rem;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <h1>FocusAI Monitor</h1>
+    <div id="model-status">
+      <div id="model-dot"></div>
+      <span id="model-label">verificando modelo…</span>
+    </div>
+  </div>
+
+  <!-- Main: camera + sidebar -->
+  <div id="main">
+    <div id="camera-wrap" class="no_model">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <div id="label-badge">—</div>
+      <div id="fps-badge">0 fps</div>
+    </div>
+
+    <div id="sidebar">
+      <!-- Metric cards -->
+      <div id="metrics">
+        <div class="card">
+          <div class="card-title">Focus Score</div>
+          <div class="card-value gray" id="card-score">—</div>
+          <div class="card-subtitle">score atual</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Status</div>
+          <div class="card-value gray" id="card-status">—</div>
+          <div class="card-subtitle">&nbsp;</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Tempo Focado</div>
+          <div class="card-value green" id="card-time">0:00</div>
+          <div class="card-subtitle">nesta sessão</div>
+        </div>
+      </div>
+
+      <div id="error-msg"></div>
+    </div>
+  </div>
+
+<script>
+  const video      = document.getElementById('video');
+  const canvas     = document.getElementById('canvas');
+  const ctx        = canvas.getContext('2d');
+  const wrap       = document.getElementById('camera-wrap');
+  const labelBadge = document.getElementById('label-badge');
+  const fpsBadge   = document.getElementById('fps-badge');
+  const errorMsg   = document.getElementById('error-msg');
+
+  const cardScore  = document.getElementById('card-score');
+  const cardStatus = document.getElementById('card-status');
+  const cardTime   = document.getElementById('card-time');
+
+  const modelDot   = document.getElementById('model-dot');
+  const modelLabel = document.getElementById('model-label');
+
+  let frameCount   = 0;
+  let fpsTs        = Date.now();
+  let predicting   = false;
+  let focusedSecs  = 0;   // total seconds in "focused" state this session
+  let lastTickMs   = null; // timestamp of last frame processed
+
+  // ── Health check ──────────────────────────────────────────
+  fetch('/health')
+    .then(r => r.json())
+    .then(data => {
+      if (data.model_loaded) {
+        modelDot.className = 'loaded';
+        modelLabel.textContent = 'modelo carregado';
+      } else {
+        modelDot.className = 'unloaded';
+        modelLabel.textContent = 'modelo não encontrado';
+      }
+    })
+    .catch(() => {
+      modelDot.className = 'unloaded';
+      modelLabel.textContent = 'erro ao verificar modelo';
+    });
+
+  // ── Webcam ─────────────────────────────────────────────────
+  navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    .then(stream => {
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+      };
+    })
+    .catch(err => {
+      errorMsg.textContent = `Webcam error: ${err.message}`;
+    });
+
+  // ── Focused-time timer ─────────────────────────────────────
+  function formatTime(totalSecs) {
+    const m = Math.floor(totalSecs / 60);
+    const s = totalSecs % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  setInterval(() => {
+    cardTime.textContent = formatTime(focusedSecs);
+  }, 1000);
+
+  // ── UI update ──────────────────────────────────────────────
+  function applyResult(label, score) {
+    const now = Date.now();
+    const deltaMs = lastTickMs !== null ? now - lastTickMs : 100;
+    lastTickMs = now;
+
+    // Accumulate focused time
+    if (label === 'focused') {
+      focusedSecs += deltaMs / 1000;
+    }
+
+    // Border & badge
+    wrap.className = label;
+    labelBadge.textContent = label === 'no_model' ? '—' : label.toUpperCase();
+
+    // Score card
+    if (label === 'no_model') {
+      cardScore.textContent = '—';
+      cardScore.className   = 'card-value gray';
+    } else {
+      cardScore.textContent = score.toFixed(2);
+      cardScore.className   = `card-value ${score >= 0.5 ? 'red' : 'green'}`;
+    }
+
+    // Status card
+    if (label === 'no_model') {
+      cardStatus.textContent = 'SEM MODELO';
+      cardStatus.className   = 'card-value gray';
+    } else if (label === 'focused') {
+      cardStatus.textContent = 'FOCUSED';
+      cardStatus.className   = 'card-value green';
+    } else {
+      cardStatus.textContent = 'DISTRACTED';
+      cardStatus.className   = 'card-value red';
+    }
+  }
+
+  // ── Capture loop — 10 FPS ──────────────────────────────────
+  async function captureFrame() {
+    if (predicting || video.readyState < 2) return;
+
+    predicting = true;
+
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
+
+    const imageData = canvas.toDataURL('image/jpeg', 0.85);
+
+    try {
+      const res  = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData }),
+      });
+      const json = await res.json();
+      applyResult(json.label, json.score);
+      errorMsg.textContent = '';
+    } catch (err) {
+      cardStatus.textContent = 'ERRO';
+      cardStatus.className   = 'card-value gray';
+      errorMsg.textContent   = `Fetch error: ${err.message}`;
+    } finally {
+      predicting = false;
+    }
+
+    // FPS counter
+    frameCount++;
+    const now = Date.now();
+    if (now - fpsTs >= 1000) {
+      fpsBadge.textContent = `${frameCount} fps`;
+      frameCount = 0;
+      fpsTs = now;
+    }
+  }
+
+  setInterval(captureFrame, 100); // 10 fps
+</script>
+</body>
+</html>
