@@ -4,7 +4,6 @@
 
 ### Concluído
 - **Data collection** (`collection/app.py`, porta 5000): Flask app com UI dark-theme, captura 10 FPS via webcam, salva JPEGs em `data/focused/` e `data/distracted/`. Dataset: 997 focused + 1 339 distracted (2 336 total).
-- **Online data collection** (`collection_online/app.py`, porta 5002): mesma UI adaptada para usuários externos, faz upload direto para Google Drive (sem disco local). Pronto para deploy no Render.
 - **Preprocessing pipeline** (`src/preprocessing/crop_faces.py`): baixa o modelo MediaPipe automaticamente, detecta face, recorta com 20% de padding, estima yaw/pitch/roll via `solvePnP`, salva em `data/cropped/` e gera `landmarks.csv`.
 - **Dual-input model** (`notebooks/train_dual.ipynb`): arquitetura CNN + rede densa de ângulos com fusão; treinamento configurado (Adam, early stopping, class weights). Notebook rodável de ponta a ponta no Colab (célula 0 de setup incluída).
 - **Monitor** (`monitor/app.py`, porta 5001): Flask app com dashboard ao vivo — `/predict`, `/health`, contador de tempo focado na sessão.
@@ -13,8 +12,6 @@
 ### Pendente
 - **Treinar o modelo** — rodar `train_dual.ipynb` end-to-end e salvar `models/focus_model.h5`.
 - **Atualizar monitor para dual-input** — `monitor/app.py:/predict` envia apenas a imagem; precisa enviar `[image, angles]` para usar o modelo treinado.
-- **Deploy no Render** — publicar `collection_online/` e configurar variáveis de ambiente / credentials.
-- **Endpoint `/download`** — não implementado em nenhum dos apps.
 
 ---
 
