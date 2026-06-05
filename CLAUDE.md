@@ -19,6 +19,14 @@ FOCUSAI/
 │   ├── templates/index.html
 │   ├── __init__.py
 │   └── app.py
+├── collection_online/   # Flask app for online data collection (deployed on Render)
+│   ├── templates/index.html
+│   ├── __init__.py
+│   └── app.py
+├── monitor/             # Real-time focus monitoring interface
+│   ├── templates/index.html
+│   ├── __init__.py
+│   └── app.py
 ├── data/
 │   ├── focused/         # raw images, label 0
 │   ├── distracted/      # raw images, label 1
@@ -38,7 +46,8 @@ FOCUSAI/
 │       └── crop_faces.py # full preprocessing pipeline
 ├── CLAUDE.md
 ├── PROGRESS.md
-└── pyproject.toml
+├── pyproject.toml
+└── credentials.json     # Google Drive service account key (NEVER commit, already in .gitignore)
 
 ## Config
 All paths and constants live in src/utils/config.py.
@@ -93,3 +102,47 @@ The image store uses only the filename img.jpg
 - Always guard scripts with if __name__ == "__main__"
 - Always add docstrings and type hints to functions in src/
 - Keep cells in notebooks runnable top to bottom
+
+## Flask Apps — Port Map
+
+### collection (port 5000) — local data collection
+- `GET  /`            → renders UI (auto-opens browser on start)
+- `POST /save_frame`  → decodes base64 JPEG, saves to data/<label>/
+- `GET  /counts`      → file counts per class read from disk
+
+### monitor (port 5001) — real-time focus monitor
+- `GET  /`            → renders dashboard (auto-opens browser on start)
+- `POST /predict`     → accepts base64 JPEG, returns `{"label", "score"}`
+- `GET  /health`      → returns `{"model_loaded": bool, "model_path": str}`
+- **Warning:** `/predict` currently sends image only (single-input array).
+  Must be updated to send `[image, angles]` to work with the dual-input model.
+
+### collection_online (port 5002) — online collection, deployed on Render
+- `GET  /`            → renders UI
+- `POST /save_frame`  → decodes base64 JPEG, uploads to Google Drive
+- `GET  /counts`      → in-memory counts only (reset on server restart)
+
+## Google Drive Integration (collection_online only)
+- Service account: focusai-collector@focusai-497621.iam.gserviceaccount.com
+- Credentials file: credentials.json at project root (load with service_account.Credentials)
+- Scopes: ["https://www.googleapis.com/auth/drive"]
+- Drive folder IDs:
+    focused:    1gHT3kha2VNqhvSGP2x7zv25qiRhrO1Vi
+    distracted: 1u2yecafDJGizA-R6aE5N5ODDxvZdYOyv
+- Upload method: MediaIoBaseUpload with mimeType "image/jpeg"
+- Never hardcode credentials — always load from credentials.json
+
+## Frontend Guidelines
+- All Flask UIs use dark theme: background #0f0f0f, green #22c55e, red #ef4444
+- Plain HTML + CSS + vanilla JavaScript only — no frameworks
+- collection_online/index.html must be intuitive for external users (friends)
+  who have never seen the app — include clear visual instructions
+- Webcam feed: 640px wide, mirrored (transform: scaleX(-1))
+- Capture rate: 10 FPS (setInterval 100ms)
+- Always show keyboard shortcuts visually in the UI
+- Smooth color transitions: 0.2s
+
+## Rules (additions)
+- Never commit credentials.json
+- collection_online saves to Google Drive — never to local disk
+- Each Flask app runs on its own port (see port map above)
