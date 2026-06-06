@@ -21,7 +21,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 24px;
+      gap: 16px;
+      padding: 12px 24px;
       border-bottom: 1px solid #1f1f1f;
       background: #111;
     }
@@ -31,6 +32,28 @@
       font-weight: 700;
       letter-spacing: 0.08em;
       color: #fff;
+    }
+
+    #shortcuts {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 2px 7px;
+      border: 1px solid #333;
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      background: #1a1a1a;
+      color: #ccc;
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 600;
+      margin-right: 4px;
     }
 
     #model-status {
@@ -46,7 +69,7 @@
       height: 10px;
       border-radius: 50%;
       background: #888;
-      transition: background 0.3s;
+      transition: background 0.2s;
     }
     #model-dot.loaded   { background: #22c55e; }
     #model-dot.unloaded { background: #ef4444; }
@@ -63,29 +86,36 @@
       overflow: hidden;
     }
 
+    #left {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+      min-height: 0;
+    }
+
     /* ── Camera wrap ──────────────────────────────────────── */
     #camera-wrap {
       position: relative;
-      flex: 1;
-      min-width: 0;
-      min-height: 0;
+      width: 640px;
+      max-width: 100%;
       border-radius: 12px;
       overflow: hidden;
       border: 3px solid #333;
       transition: border-color 0.2s;
+      background: #000;
     }
     #camera-wrap.focused    { border-color: #22c55e; }
     #camera-wrap.distracted { border-color: #ef4444; }
-    #camera-wrap.no_model   { border-color: #888; }
+    #camera-wrap.absent     { border-color: #888; }
+    #camera-wrap.no_model   { border-color: #555; }
 
-    video, canvas {
+    video, canvas#canvas {
       display: block;
       width: 100%;
-      height: 100%;
-      object-fit: contain;
     }
     video { transform: scaleX(-1); }
-    canvas { display: none; }
+    canvas#canvas { display: none; }
 
     #label-badge {
       position: absolute;
@@ -114,33 +144,73 @@
       color: #aaa;
     }
 
-    /* ── Sidebar (cards + error) ──────────────────────────── */
+    #pause-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(3px);
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #e0e0e0;
+    }
+    #pause-overlay span { font-size: 0.78rem; font-weight: 400; color: #888; letter-spacing: 0.02em; }
+    body.paused #pause-overlay { display: flex; }
+
+    /* ── Chart panel ──────────────────────────────────────── */
+    #chart-panel {
+      flex: 1;
+      min-height: 120px;
+      width: 640px;
+      max-width: 100%;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .panel-title {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      color: #555;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    #chart {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────── */
     #sidebar {
-      width: 220px;
+      width: 280px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       gap: 12px;
-    }
-
-    /* ── Metric cards ─────────────────────────────────────── */
-    #metrics {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      overflow-y: auto;
     }
 
     .card {
       background: #1a1a1a;
       border: 1px solid #2a2a2a;
       border-radius: 12px;
-      padding: 18px 20px;
-      text-align: center;
+      padding: 14px 18px;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 6px;
+      flex-shrink: 0;
     }
 
     .card-title {
@@ -152,7 +222,7 @@
     }
 
     .card-value {
-      font-size: 2.5rem;
+      font-size: 2.1rem;
       font-weight: 700;
       line-height: 1;
       transition: color 0.2s;
@@ -168,10 +238,91 @@
       color: #555;
     }
 
+    /* summary rows */
+    .summary-rows {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+
+    .summary-row .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 7px;
+    }
+    .dot.green { background: #22c55e; }
+    .dot.red   { background: #ef4444; }
+    .dot.gray  { background: #888; }
+
+    .summary-row b { color: #e0e0e0; font-variant-numeric: tabular-nums; }
+
+    /* episodes */
+    #episode-stats {
+      display: flex;
+      width: 100%;
+      justify-content: space-around;
+      margin-top: 2px;
+    }
+
+    .ep-stat { text-align: center; }
+
+    .ep-stat .num {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #ef4444;
+      transition: color 0.2s;
+    }
+
+    .ep-stat .lbl {
+      font-size: 0.65rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    #episode-list {
+      width: 100%;
+      list-style: none;
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 130px;
+      overflow-y: auto;
+    }
+
+    #episode-list li {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #aaa;
+      background: #141414;
+      border: 1px solid #242424;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #episode-list li b { color: #ef4444; font-weight: 600; }
+
+    #episode-empty { font-size: 0.72rem; color: #555; margin-top: 4px; }
+
     #error-msg {
       color: #ef4444;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       min-height: 1.2em;
+      flex-shrink: 0;
     }
   </style>
 </head>
@@ -180,41 +331,83 @@
   <!-- Top bar -->
   <div id="topbar">
     <h1>FocusAI Monitor</h1>
+    <div id="shortcuts">
+      <span><kbd>P</kbd> pausar / retomar</span>
+      <span><kbd>R</kbd> reiniciar sessão</span>
+    </div>
     <div id="model-status">
       <div id="model-dot"></div>
       <span id="model-label">verificando modelo…</span>
     </div>
   </div>
 
-  <!-- Main: camera + sidebar -->
+  <!-- Main: camera + chart | sidebar -->
   <div id="main">
-    <div id="camera-wrap" class="no_model">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="canvas"></canvas>
-      <div id="label-badge">—</div>
-      <div id="fps-badge">0 fps</div>
+    <div id="left">
+      <div id="camera-wrap" class="no_model">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <div id="label-badge">—</div>
+        <div id="fps-badge">0 fps</div>
+        <div id="pause-overlay">
+          PAUSADO
+          <span>pressione <kbd>P</kbd> para retomar</span>
+        </div>
+      </div>
+
+      <div id="chart-panel">
+        <div class="panel-title">Foco ao longo do tempo (últimos 3 min)</div>
+        <canvas id="chart"></canvas>
+      </div>
     </div>
 
     <div id="sidebar">
-      <!-- Metric cards -->
-      <div id="metrics">
-        <div class="card">
-          <div class="card-title">Focus Score</div>
-          <div class="card-value gray" id="card-score">—</div>
-          <div class="card-subtitle">score atual</div>
-        </div>
+      <div class="card">
+        <div class="card-title">Status</div>
+        <div class="card-value gray" id="card-status">—</div>
+        <div class="card-subtitle">estado suavizado</div>
+      </div>
 
-        <div class="card">
-          <div class="card-title">Status</div>
-          <div class="card-value gray" id="card-status">—</div>
-          <div class="card-subtitle">&nbsp;</div>
-        </div>
+      <div class="card">
+        <div class="card-title">Focus Score</div>
+        <div class="card-value gray" id="card-score">—</div>
+        <div class="card-subtitle">média das últimas ~2,5s</div>
+      </div>
 
-        <div class="card">
-          <div class="card-title">Tempo Focado</div>
-          <div class="card-value green" id="card-time">0:00</div>
-          <div class="card-subtitle">nesta sessão</div>
+      <div class="card">
+        <div class="card-title">Resumo da Sessão</div>
+        <div class="card-value green" id="card-pct">—</div>
+        <div class="card-subtitle">% do tempo focado</div>
+        <div class="summary-rows">
+          <div class="summary-row">
+            <span><span class="dot green"></span>Focado</span>
+            <b id="sum-focused">0:00</b>
+          </div>
+          <div class="summary-row">
+            <span><span class="dot red"></span>Distraído</span>
+            <b id="sum-distracted">0:00</b>
+          </div>
+          <div class="summary-row">
+            <span><span class="dot gray"></span>Ausente</span>
+            <b id="sum-absent">0:00</b>
+          </div>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Episódios de Distração</div>
+        <div id="episode-stats">
+          <div class="ep-stat">
+            <div class="num" id="ep-count">0</div>
+            <div class="lbl">episódios</div>
+          </div>
+          <div class="ep-stat">
+            <div class="num" id="ep-avg">—</div>
+            <div class="lbl">duração média</div>
+          </div>
+        </div>
+        <ul id="episode-list"></ul>
+        <div id="episode-empty">nenhum episódio (mín. 3s)</div>
       </div>
 
       <div id="error-msg"></div>
@@ -222,6 +415,14 @@
   </div>
 
 <script>
+  // ── Constantes ─────────────────────────────────────────────
+  const CAPTURE_INTERVAL_MS = 100;     // 10 FPS
+  const ABSENT_THRESHOLD    = 10;      // ~1 s sem rosto → ausente
+  const EPISODE_MIN_MS      = 3000;    // duração mínima de um episódio
+  const CHART_WINDOW_MS     = 180000;  // janela do gráfico: 3 min
+  const GAP_BREAK_MS        = 1000;    // intervalo que quebra a linha do gráfico
+
+  // ── Elementos ──────────────────────────────────────────────
   const video      = document.getElementById('video');
   const canvas     = document.getElementById('canvas');
   const ctx        = canvas.getContext('2d');
@@ -230,18 +431,36 @@
   const fpsBadge   = document.getElementById('fps-badge');
   const errorMsg   = document.getElementById('error-msg');
 
+  const chartCanvas = document.getElementById('chart');
+  const chartCtx    = chartCanvas.getContext('2d');
+
   const cardScore  = document.getElementById('card-score');
   const cardStatus = document.getElementById('card-status');
-  const cardTime   = document.getElementById('card-time');
+  const cardPct    = document.getElementById('card-pct');
+  const sumFocused    = document.getElementById('sum-focused');
+  const sumDistracted = document.getElementById('sum-distracted');
+  const sumAbsent     = document.getElementById('sum-absent');
+
+  const epCount  = document.getElementById('ep-count');
+  const epAvg    = document.getElementById('ep-avg');
+  const epList   = document.getElementById('episode-list');
+  const epEmpty  = document.getElementById('episode-empty');
 
   const modelDot   = document.getElementById('model-dot');
   const modelLabel = document.getElementById('model-label');
 
+  // ── Estado da sessão ───────────────────────────────────────
+  let paused       = false;
+  let predicting   = false;
   let frameCount   = 0;
   let fpsTs        = Date.now();
-  let predicting   = false;
-  let focusedSecs  = 0;   // total seconds in "focused" state this session
-  let lastTickMs   = null; // timestamp of last frame processed
+  let lastTickMs   = null;
+
+  let timeMs       = { focused: 0, distracted: 0, absent: 0 };
+  let absentStreak = 0;                // respostas consecutivas sem rosto
+  let chartPoints  = [];               // {t, score, absent}
+  let episodes     = [];               // {start, end, durMs}
+  let openEpisode  = null;             // {start}
 
   // ── Health check ──────────────────────────────────────────
   fetch('/health')
@@ -273,57 +492,194 @@
       errorMsg.textContent = `Webcam error: ${err.message}`;
     });
 
-  // ── Focused-time timer ─────────────────────────────────────
-  function formatTime(totalSecs) {
-    const m = Math.floor(totalSecs / 60);
+  // ── Helpers ────────────────────────────────────────────────
+  function formatTime(ms) {
+    const totalSecs = Math.floor(ms / 1000);
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
     const s = totalSecs % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     return `${m}:${String(s).padStart(2, '0')}`;
   }
 
-  setInterval(() => {
-    cardTime.textContent = formatTime(focusedSecs);
-  }, 1000);
+  function formatClock(t) {
+    return new Date(t).toLocaleTimeString('pt-BR');
+  }
+
+  // ── Episódios de distração ─────────────────────────────────
+  function closeEpisode(now) {
+    if (!openEpisode) return;
+    const durMs = now - openEpisode.start;
+    if (durMs >= EPISODE_MIN_MS) {
+      episodes.push({ start: openEpisode.start, end: now, durMs });
+    }
+    openEpisode = null;
+  }
+
+  function updateEpisodes(state, now) {
+    if (state === 'distracted') {
+      if (!openEpisode) openEpisode = { start: now };
+    } else {
+      closeEpisode(now);
+    }
+  }
+
+  function renderEpisodes() {
+    epCount.textContent = episodes.length;
+    if (episodes.length > 0) {
+      const avgMs = episodes.reduce((a, e) => a + e.durMs, 0) / episodes.length;
+      epAvg.textContent = `${(avgMs / 1000).toFixed(1)}s`;
+      epEmpty.style.display = 'none';
+    } else {
+      epAvg.textContent = '—';
+      epEmpty.style.display = 'block';
+    }
+
+    epList.innerHTML = '';
+    episodes.slice(-6).reverse().forEach(e => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${formatClock(e.start)}</span><b>${(e.durMs / 1000).toFixed(1)}s</b>`;
+      epList.appendChild(li);
+    });
+  }
+
+  // ── Resumo da sessão ───────────────────────────────────────
+  function renderSummary() {
+    sumFocused.textContent    = formatTime(timeMs.focused);
+    sumDistracted.textContent = formatTime(timeMs.distracted);
+    sumAbsent.textContent     = formatTime(timeMs.absent);
+
+    const total = timeMs.focused + timeMs.distracted + timeMs.absent;
+    if (total > 0) {
+      const pct = (timeMs.focused / total) * 100;
+      cardPct.textContent = `${pct.toFixed(0)}%`;
+      cardPct.className   = `card-value ${pct >= 50 ? 'green' : 'red'}`;
+    } else {
+      cardPct.textContent = '—';
+      cardPct.className   = 'card-value gray';
+    }
+  }
+
+  // ── Gráfico de foco (canvas vanilla) ───────────────────────
+  function drawChart() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = chartCanvas.clientWidth;
+    const h = chartCanvas.clientHeight;
+    if (w === 0 || h === 0) return;
+    if (chartCanvas.width !== Math.round(w * dpr) || chartCanvas.height !== Math.round(h * dpr)) {
+      chartCanvas.width  = Math.round(w * dpr);
+      chartCanvas.height = Math.round(h * dpr);
+    }
+
+    const c = chartCtx;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+
+    const now = Date.now();
+    const t0  = now - CHART_WINDOW_MS;
+    const xFor = t => ((t - t0) / CHART_WINDOW_MS) * w;
+    const yFor = s => 4 + (1 - s) * (h - 8);   // score 1 (distraído) no topo
+
+    // Linha de limiar 0.5
+    c.strokeStyle = '#333';
+    c.setLineDash([5, 5]);
+    c.beginPath();
+    c.moveTo(0, yFor(0.5));
+    c.lineTo(w, yFor(0.5));
+    c.stroke();
+    c.setLineDash([]);
+
+    // Rótulos das zonas
+    c.font = '10px system-ui, sans-serif';
+    c.fillStyle = 'rgba(239,68,68,0.55)';
+    c.fillText('distraído', 6, 14);
+    c.fillStyle = 'rgba(34,197,94,0.55)';
+    c.fillText('focado', 6, h - 6);
+
+    // Pontos dentro da janela
+    const pts = chartPoints.filter(p => p.t >= t0);
+
+    // Segmentos coloridos pelo score; quebra em ausência ou gaps
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      if (a.absent || b.absent) continue;
+      if (b.t - a.t > GAP_BREAK_MS) continue;
+      const mid = (a.score + b.score) / 2;
+      c.strokeStyle = mid > 0.5 ? '#ef4444' : '#22c55e';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(xFor(a.t), yFor(a.score));
+      c.lineTo(xFor(b.t), yFor(b.score));
+      c.stroke();
+    }
+
+    // Marcadores de ausência na base
+    c.fillStyle = '#888';
+    pts.forEach(p => {
+      if (p.absent) c.fillRect(xFor(p.t) - 1, h - 4, 2, 4);
+    });
+  }
 
   // ── UI update ──────────────────────────────────────────────
-  function applyResult(label, score) {
+  function applyResult(json) {
     const now = Date.now();
-    const deltaMs = lastTickMs !== null ? now - lastTickMs : 100;
-    lastTickMs = now;
+    const { label, score, face_detected } = json;
 
-    // Accumulate focused time
-    if (label === 'focused') {
-      focusedSecs += deltaMs / 1000;
-    }
-
-    // Border & badge
-    wrap.className = label;
-    labelBadge.textContent = label === 'no_model' ? '—' : label.toUpperCase();
-
-    // Score card
     if (label === 'no_model') {
+      labelBadge.textContent = '—';
+      wrap.className = 'no_model';
       cardScore.textContent = '—';
       cardScore.className   = 'card-value gray';
-    } else {
-      cardScore.textContent = score.toFixed(2);
-      cardScore.className   = `card-value ${score >= 0.5 ? 'red' : 'green'}`;
-    }
-
-    // Status card
-    if (label === 'no_model') {
       cardStatus.textContent = 'SEM MODELO';
       cardStatus.className   = 'card-value gray';
-    } else if (label === 'focused') {
+      return;
+    }
+
+    // Ausência: ~1 s consecutivo sem rosto detectado
+    absentStreak = face_detected ? 0 : absentStreak + 1;
+    const state = absentStreak >= ABSENT_THRESHOLD ? 'absent' : label;
+
+    // Contabiliza o tempo no estado atual
+    const deltaMs = lastTickMs !== null ? Math.min(now - lastTickMs, 1000) : CAPTURE_INTERVAL_MS;
+    lastTickMs = now;
+    timeMs[state] += deltaMs;
+
+    // Episódios de distração (transições no estado suavizado)
+    updateEpisodes(state, now);
+
+    // Série do gráfico
+    chartPoints.push({ t: now, score, absent: state === 'absent' });
+    const cutoff = now - CHART_WINDOW_MS - 5000;
+    while (chartPoints.length > 0 && chartPoints[0].t < cutoff) chartPoints.shift();
+
+    // Borda e badge
+    wrap.className = state;
+    labelBadge.textContent = state === 'absent' ? 'AUSENTE' : label.toUpperCase();
+
+    // Score card
+    cardScore.textContent = score.toFixed(2);
+    cardScore.className   = `card-value ${score > 0.5 ? 'red' : 'green'}`;
+
+    // Status card
+    if (state === 'absent') {
+      cardStatus.textContent = 'AUSENTE';
+      cardStatus.className   = 'card-value gray';
+    } else if (state === 'focused') {
       cardStatus.textContent = 'FOCUSED';
       cardStatus.className   = 'card-value green';
     } else {
       cardStatus.textContent = 'DISTRACTED';
       cardStatus.className   = 'card-value red';
     }
+
+    renderSummary();
+    renderEpisodes();
+    drawChart();
   }
 
-  // ── Capture loop — 10 FPS ──────────────────────────────────
+  // ── Captura — 10 FPS ───────────────────────────────────────
   async function captureFrame() {
-    if (predicting || video.readyState < 2) return;
+    if (paused || predicting || video.readyState < 2) return;
 
     predicting = true;
 
@@ -341,7 +697,7 @@
         body: JSON.stringify({ image: imageData }),
       });
       const json = await res.json();
-      applyResult(json.label, json.score);
+      applyResult(json);
       errorMsg.textContent = '';
     } catch (err) {
       cardStatus.textContent = 'ERRO';
@@ -361,7 +717,42 @@
     }
   }
 
-  setInterval(captureFrame, 100); // 10 fps
+  setInterval(captureFrame, CAPTURE_INTERVAL_MS); // 10 fps
+
+  // ── Atalhos de teclado ─────────────────────────────────────
+  function togglePause() {
+    paused = !paused;
+    document.body.classList.toggle('paused', paused);
+    if (paused) {
+      closeEpisode(Date.now());
+      lastTickMs = null;       // não acumula tempo durante a pausa
+      cardStatus.textContent = 'PAUSADO';
+      cardStatus.className   = 'card-value gray';
+      renderEpisodes();
+    }
+  }
+
+  function resetSession() {
+    timeMs       = { focused: 0, distracted: 0, absent: 0 };
+    episodes     = [];
+    openEpisode  = null;
+    chartPoints  = [];
+    absentStreak = 0;
+    lastTickMs   = null;
+    renderSummary();
+    renderEpisodes();
+    drawChart();
+    fetch('/reset', { method: 'POST' }).catch(() => {});
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'p' || e.key === 'P') togglePause();
+    if (e.key === 'r' || e.key === 'R') resetSession();
+  });
+
+  // Redesenha o gráfico mesmo sem novas predições (janela desliza)
+  setInterval(() => { if (!paused) drawChart(); }, 500);
+  window.addEventListener('resize', drawChart);
 </script>
 </body>
 </html>
