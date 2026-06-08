@@ -165,6 +165,25 @@ def append_to_csv(csv_path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
+def load_processed_filenames(csv_path: Path) -> set[str]:
+    """
+    Read the existing landmarks CSV and collect every value already present in
+    the "filename" column. Used to skip images that were processed before.
+
+    Args:
+        csv_path: Path to landmarks.csv.
+
+    Returns:
+        Set of filename values (e.g. "data/cropped/focused/img.jpg") already in
+        the CSV. Empty set if the file does not exist yet.
+    """
+    if not csv_path.exists():
+        return set()
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        return {row["filename"] for row in reader if row.get("filename")}
+
+
 def log_no_face(log_path: Path, filename: str) -> None:
     """
     Append a filename to the no-face log file.
@@ -202,11 +221,13 @@ def process_category(
     detector: vision.FaceLandmarker,
     csv_path: Path,
     log_path: Path,
+    already_processed: set[str],
     output_size: tuple = (224, 224),
 ) -> dict:
     """
     Process all images in one class folder: crop faces, estimate head pose,
-    save cropped images, and log results to CSV.
+    save cropped images, and log results to CSV. Images whose CSV key is already
+    in already_processed are skipped entirely (idempotent re-runs).
 
     Args:
         category: "focused" or "distracted".
@@ -215,20 +236,28 @@ def process_category(
         detector: Initialized FaceLandmarker instance.
         csv_path: Path to landmarks.csv.
         log_path: Path to no_face_log.txt.
+        already_processed: Set of "filename" values already present in landmarks.csv;
+            images matching one of these are skipped.
         output_size: Target (width, height) for saved images.
 
     Returns:
-        Dict with keys: total, cropped, fallbacks.
+        Dict with keys: total, cropped, fallbacks, skipped.
     """
     images = list(input_dir.glob("*.jpg"))
     total = len(images)
     cropped_count = 0
     fallbacks = 0
+    skipped = 0
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for i, img_path in enumerate(images, start=1):
         filename = img_path.name
+        key = f"data/cropped/{category}/{filename}"
+        if key in already_processed:
+            skipped += 1
+            continue
+
         image = cv2.imread(str(img_path))
         if image is None:
             print(f"Error reading {img_path}, skipping.")
@@ -270,7 +299,12 @@ def process_category(
         else:
             print(f"[{i}/{total}] {category} — {filename} — sem face detectada")
 
-    return {"total": total, "cropped": cropped_count, "fallbacks": fallbacks}
+    return {
+        "total": total,
+        "cropped": cropped_count,
+        "fallbacks": fallbacks,
+        "skipped": skipped,
+    }
 
 
 def main() -> None:
@@ -295,6 +329,9 @@ def main() -> None:
     (PROJECT_ROOT / DATA_CROPPED_PATH / "focused").mkdir(parents=True, exist_ok=True)
     (PROJECT_ROOT / DATA_CROPPED_PATH / "distracted").mkdir(parents=True, exist_ok=True)
 
+    already_processed = load_processed_filenames(PROJECT_ROOT / LANDMARK_CSV_PATH)
+    print(f"{len(already_processed)} imagens já no CSV — serão puladas.")
+
     results = {}
     for category in ("focused", "distracted"):
         results[category] = process_category(
@@ -304,17 +341,18 @@ def main() -> None:
             detector=detector,
             csv_path=PROJECT_ROOT / LANDMARK_CSV_PATH,
             log_path=PROJECT_ROOT / NO_FACE_LOG_PATH,
+            already_processed=already_processed,
         )
 
     f = results["focused"]
     d = results["distracted"]
     print(
-        f"\n╔══════════════╦═══════╦═════════╦═══════════╗\n"
-        f"║ Class        ║ Total ║ Cropped ║ Fallbacks ║\n"
-        f"╠══════════════╬═══════╬═════════╬═══════════╣\n"
-        f"║ focused      ║ {f['total']:>5} ║ {f['cropped']:>7} ║ {f['fallbacks']:>9} ║\n"
-        f"║ distracted   ║ {d['total']:>5} ║ {d['cropped']:>7} ║ {d['fallbacks']:>9} ║\n"
-        f"╚══════════════╩═══════╩═════════╩═══════════╝"
+        f"\n╔══════════════╦═══════╦═════════╦═══════════╦═════════╗\n"
+        f"║ Class        ║ Total ║ Cropped ║ Fallbacks ║ Skipped ║\n"
+        f"╠══════════════╬═══════╬═════════╬═══════════╬═════════╣\n"
+        f"║ focused      ║ {f['total']:>5} ║ {f['cropped']:>7} ║ {f['fallbacks']:>9} ║ {f['skipped']:>7} ║\n"
+        f"║ distracted   ║ {d['total']:>5} ║ {d['cropped']:>7} ║ {d['fallbacks']:>9} ║ {d['skipped']:>7} ║\n"
+        f"╚══════════════╩═══════╩═════════╩═══════════╩═════════╝"
     )
 
 
