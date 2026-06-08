@@ -8,8 +8,10 @@ the notebook cells "## 1 Carregamento das Imagens", "## 2 Carregamento dos
 Ângulos" and the array-building part of "## 3 Pré-processamento" in
 ``notebooks/train_dual.ipynb``.
 
-Images are kept in raw ``[0, 255]`` scale on purpose: the MobileNetV2
-preprocessing (``[0, 255] -> [-1, 1]``) lives inside the model graph
+Images are stored as raw ``uint8`` in ``[0, 255]`` on purpose: ``uint8`` is the
+native pixel range, so this is lossless and keeps the ``.npz`` ~4x smaller than
+float32. The cast to float32 happens at load time in the notebook, and the
+MobileNetV2 preprocessing (``[0, 255] -> [-1, 1]``) lives inside the model graph
 (``src/models/build_model.py``), so arrays must NOT be rescaled here.
 
 The train/val split and the class weights are intentionally left out — they
@@ -50,17 +52,18 @@ def load_images(data_dir: Path) -> dict[tuple[str, str], tuple[np.ndarray, int]]
     Load every cropped face image keyed by its (class, filename) pair.
 
     Reads each ``.jpg`` from ``<data_dir>/<class>/`` in grayscale, resizes it to
-    ``IMG_SIZE`` and reshapes it to ``(*IMG_SIZE, CHANNELS)``. Pixels are kept in
-    raw ``[0, 255]`` float32 scale — rescaling to ``[-1, 1]`` happens inside the
-    model graph, so the arrays fed to the model must stay raw.
+    ``IMG_SIZE`` and reshapes it to ``(*IMG_SIZE, CHANNELS)``. Pixels are kept as
+    raw ``uint8`` in ``[0, 255]`` (OpenCV's native dtype) — the cast to float32
+    happens at load time in the notebook and rescaling to ``[-1, 1]`` happens
+    inside the model graph, so the stored arrays stay raw and integer.
 
     Args:
         data_dir: Path to ``data/cropped`` containing the class subfolders.
 
     Returns:
         Mapping ``(class_name, filename) -> (image_array, label_index)`` where
-        ``label_index`` is the position of the class in ``CLASSES``
-        (focused=0, distracted=1).
+        ``image_array`` is ``uint8`` and ``label_index`` is the position of the
+        class in ``CLASSES`` (focused=0, distracted=1).
     """
     image_store: dict[tuple[str, str], tuple[np.ndarray, int]] = {}
 
@@ -69,11 +72,12 @@ def load_images(data_dir: Path) -> dict[tuple[str, str], tuple[np.ndarray, int]]
         jpg_files = sorted(class_dir.glob("*.jpg"))
         print(f"{class_name}: {len(jpg_files)} images")
         for img_path in jpg_files:
+            # cv2.imread + resize already yield uint8 [0, 255]; keep it that way
+            # to halve/quarter the .npz size. The float32 cast happens in the
+            # notebook and rescaling to [-1, 1] happens inside the model graph.
             img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
             img = cv2.resize(img, IMG_SIZE)
-            # Keep raw [0, 255] values — rescaling to [-1, 1] happens INSIDE the
-            # model graph (src/models/build_model.py), so arrays stay raw.
-            img_arr = img.astype(np.float32).reshape(*IMG_SIZE, CHANNELS)
+            img_arr = img.reshape(*IMG_SIZE, CHANNELS)
             image_store[(class_name, img_path.name)] = (img_arr, label_idx)
 
     print(f"\nTotal images loaded: {len(image_store)}")
@@ -125,7 +129,7 @@ def build_arrays(
 
     Returns:
         Tuple ``(X_images, X_angles, y, unmatched)`` where ``X_images`` is
-        float32 ``(n, *IMG_SIZE, CHANNELS)``, ``X_angles`` is float32
+        uint8 ``(n, *IMG_SIZE, CHANNELS)``, ``X_angles`` is float32
         ``(n, 3)``, ``y`` is int32 ``(n,)`` (focused=0, distracted=1), and
         ``unmatched`` is the count of CSV rows without a matching image.
     """
@@ -143,7 +147,7 @@ def build_arrays(
         X_angles.append([row["yaw"], row["pitch"], row["roll"]])
         y_labels.append(label_idx)
 
-    X_images = np.array(X_images, dtype=np.float32)
+    X_images = np.array(X_images, dtype=np.uint8)
     X_angles = np.array(X_angles, dtype=np.float32)
     y = np.array(y_labels, dtype=np.int32)
 
