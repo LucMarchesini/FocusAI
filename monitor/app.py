@@ -7,13 +7,15 @@ estimation via src/preprocessing/crop_faces.py) and feeds the dual-input
 model with raw inputs: grayscale image (224, 224, 1) in [0, 255] and
 head pose angles (3,) with 999.0 as the no-face sentinel.
 
-Predictions are temporally smoothed over a sliding window (~2.5 s at
-10 FPS) before being returned to the dashboard.
+Predictions are temporally smoothed over a real-time sliding window
+(~2.5 s of wall-clock, independent of FPS) before being returned to the
+dashboard.
 """
 
 import base64
 import sys
 import threading
+import time
 import webbrowser
 from collections import deque
 from pathlib import Path
@@ -40,7 +42,16 @@ from src.utils.config import (
 )
 
 NO_FACE_ANGLE = 999.0          # sentinel used at training time for null angles
-SMOOTHING_WINDOW = 25          # ~2.5 s of predictions at 10 FPS
+
+# Temporal smoothing window measured in REAL TIME, not frames: the smoothed
+# score averages every prediction from the last SMOOTHING_SECONDS, so it stays
+# ~2.5 s of wall-clock whether inference runs at 2 or 10 FPS.
+SMOOTHING_SECONDS = 2.5
+
+# Decision cut-off applied to the smoothed score: > FOCUS_THRESHOLD => the user
+# is "distracted", otherwise "focused". Kept at 0.5 (the chart's "limiar 50%");
+# extracted here so it can be calibrated in a single place.
+FOCUS_THRESHOLD = 0.5
 
 app = Flask(__name__)
 
@@ -63,9 +74,11 @@ try:
 except Exception:
     detector = None
 
-# Sliding window of raw scores for temporal smoothing.
+# Time-stamped raw scores for real-time temporal smoothing: each entry is
+# (timestamp, raw_score) and entries older than SMOOTHING_SECONDS are dropped
+# at read time, so the window tracks wall-clock instead of a frame count.
 # detector/model are not thread-safe, so inference is serialized.
-_scores: deque[float] = deque(maxlen=SMOOTHING_WINDOW)
+_scores: deque[tuple[float, float]] = deque()
 _lock = threading.Lock()
 
 
@@ -120,8 +133,8 @@ def predict():
 
     Expects JSON: {"image": "data:image/jpeg;base64,..."}
     Returns JSON: {"label", "score", "raw_score", "face_detected"} where
-    label/score are temporally smoothed over the last SMOOTHING_WINDOW
-    predictions.
+    label/score are temporally smoothed over the predictions from the last
+    SMOOTHING_SECONDS seconds.
     """
     if model is None:
         return jsonify(
@@ -144,10 +157,15 @@ def predict():
                 {"image_input": image_array, "angle_input": angles}, verbose=0
             )[0][0]
         )
-        _scores.append(raw_score)
-        smoothed = float(np.mean(_scores))
+        now = time.time()
+        _scores.append((now, raw_score))
+        # Discard predictions older than the real-time smoothing window.
+        cutoff = now - SMOOTHING_SECONDS
+        while _scores and _scores[0][0] < cutoff:
+            _scores.popleft()
+        smoothed = float(np.mean([score for _, score in _scores]))
 
-    label = "distracted" if smoothed > 0.5 else "focused"
+    label = "distracted" if smoothed > FOCUS_THRESHOLD else "focused"
 
     return jsonify(
         {
